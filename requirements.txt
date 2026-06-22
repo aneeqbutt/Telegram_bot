@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+motor==3.6.0
+pymongo==4.9.2
+httpx
+beautifulsoup4
+lxml
+python-dotenv
+pydantic
+apscheduler
+certifi
+dnspython
+python-dateutil

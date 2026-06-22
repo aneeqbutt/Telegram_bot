@@ -1,0 +1,167 @@
+Daily Progress Report - June 17, 2026
+
+Project: Telegram News Bot
+
+
+WORK SESSION 1: BLOCKWORKS CLOUDFLARE BYPASS AND SCRAPER OVERHAUL
+
+Completed Tasks
+
+Cloudflare Bypass Root Cause Diagnosis
+
+* Identified 4 specific flaws in the SeleniumBase Layer 3 implementation
+  causing Cloudflare Turnstile bypass failure
+
+  * headless=True leaks bot signals: empty plugins, SwiftShader WebGL
+    renderer, zero screen dimensions -- all detectable by CF Bot Management
+
+  * uc_gui_click_captcha() is wrong method for Turnstile -- it targets
+    reCAPTCHA v2 image grids, Turnstile verifies passively with no click
+
+  * 3-second sleep insufficient -- Turnstile fingerprinting takes 8-15
+    seconds on suspicious sessions before resolving
+
+  * Fresh Chrome instance per article -- no cookie persistence, zero CF
+    trust score on every request
+
+* Confirmed root cause is architectural: Blockworks uses Cloudflare Bot
+  Management (paid enterprise tier) which evaluates IP reputation and TLS
+  fingerprint at network level -- no browser automation tool defeats this
+
+Blockworks API Endpoint Discovery and Implementation
+
+* Identified that blockworks.com/api/posts is Blockworks' internal React
+  frontend API -- returns full article JSON with zero Cloudflare protection
+
+* Rewrote scrapers/blockworks.py to call the API directly via httpx
+  replacing the entire 3-layer bypass + RSS fallback system
+
+* API returns 5,565 to 19,187 chars of raw HTML content per article
+  compared to 140 chars of CF challenge text before
+
+* Added dual date parser handling both ISO 8601 and RFC 2822 formats
+  returned by the API
+
+* Set BLOCKWORKS_API_LIMIT = 50 to fetch all available latest articles
+  in a single request with no pagination needed
+
+Limit Removal -- Fetch All Latest Articles
+
+* Removed hardcoded limit=5 and limit=10 from both scrapers and the
+  service layer -- both scrapers now fetch everything available
+
+* CoinTelegraph processes all 30 items returned by the RSS feed
+
+* Blockworks requests up to 50 articles from the API in one call
+
+* run_scrapers() signature simplified -- no limit_per_source parameter
+
+* Full pipeline run confirmed: 70 new articles stored, 10 duplicates
+  skipped, 0 validation errors across both sources
+
+
+WORK SESSION 2: CODEBASE CLEANUP AND PLANNING
+
+Completed Tasks
+
+Codebase Cleanup
+
+* Deleted all SeleniumBase leftover artifacts: downloads.htm.crdownload,
+  driver_fixing.lock, latest_logs/ folder with CF challenge page source,
+  screenshot, and debug logs
+
+* Deleted stale planning files: brain.md (referenced abandoned Supabase
+  stack), doc_content.txt (redundant extracted text)
+
+* Deleted all __pycache__ folders across database/, scrapers/,
+  services/, utils/
+
+* Project reduced to 28 clean files -- all active code, config, or docs
+
+Day 3 and Day 4 Plan Files Created
+
+* Created plan/day3.md covering 5 phases: AI rewriter (Gemini Flash),
+  Telegram poster (HTML format + 429 retry), dispatcher, APScheduler
+  wiring into FastAPI lifespan, and admin manual trigger endpoint
+
+* Created plan/day4.md covering 4 phases: full test suite with conftest
+  and 6 test files, error hardening (scheduler crash guard, content
+  length guard, Telegram 4096 char cap), health check endpoint, and
+  deployment guide for both Windows and Linux systemd
+
+
+CHALLENGES RESOLVED
+
+Blockworks returning 140 chars of content on every article fetch
+
+* Root cause:
+  Cloudflare Bot Management operates at TLS and IP reputation level --
+  no headless browser tool can pass it from a flagged IP regardless of
+  UC Mode or stealth patches
+
+* Fix:
+  Switched to blockworks.com/api/posts JSON endpoint which is
+  completely unprotected -- returns full article HTML content in one
+  request with no Cloudflare involvement
+
+Date parsing failure on Blockworks API response
+
+* Root cause:
+  API returns dates in RFC 2822 format (Wed, 07 Jan 2026 14:00:00 GMT)
+  which datetime.fromisoformat() cannot parse
+
+* Fix:
+  Added two-stage parser in _parse_date(): ISO 8601 first, then
+  RFC 2822 with GMT replaced by +0000 for strptime compatibility
+
+
+FILES CHANGED
+
+scrapers/blockworks.py
+
+* Completely rewritten -- removed RSS feed fetching, 3-layer bypass
+  dependency, and _extract_content() HTML parser
+* Now calls blockworks.com/api/posts?limit=50 via plain httpx
+* Added _parse_date() with ISO 8601 and RFC 2822 dual format support
+* Removed limit parameter from scrape() -- fetches all available posts
+
+scrapers/cointelegraph.py
+
+* Removed limit parameter from scrape() -- now processes all RSS items
+
+services/scraper_service.py
+
+* Removed limit_per_source parameter from run_scrapers()
+* Updated asyncio.gather calls to scrape() with no arguments
+
+run_scraper.py
+
+* Removed limit=5 from scraper.scrape() call
+
+plan/day3.md
+
+* Created -- full implementation reference for AI rewriter, Telegram
+  poster, dispatcher, APScheduler, and admin trigger endpoint
+
+plan/day4.md
+
+* Created -- full implementation reference for test suite, error
+  hardening, health check endpoint, and deployment
+
+
+END STATE
+
+✓ Blockworks scraper fully operational via API -- 5,565 to 19,187 chars
+  per article, zero Cloudflare friction, under 1 second for all articles
+✓ CoinTelegraph scraper processing all 30 RSS articles per run
+✓ Both scrapers fetch all latest articles with no hardcoded limits
+✓ 70 articles stored across both sources in latest pipeline run
+✓ Codebase cleaned -- 28 files, no leftover artifacts or stale docs
+✓ Day 3 and Day 4 plan files complete and ready for implementation
+
+Pending:
+
+* Day 3 not yet started: AI rewriter, Telegram poster, dispatcher,
+  APScheduler automation
+* Day 4 not yet started: test suite, error hardening, health check,
+  deployment

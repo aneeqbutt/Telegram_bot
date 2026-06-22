@@ -1,0 +1,21 @@
+End of Day Update - Telegram News Bot | June 18, 2026
+
+COMPLETED:
+
+* Phase 1: AI rewriter built using OpenRouter API with truncation fallback
+* Phase 2: Telegram poster built with HTML formatting and 429 retry logic
+* Telegram channel @aneeq121 set up, bot added as admin, test post confirmed
+* Phase 3: Dispatcher built with content guard and message length guard
+* Phase 4: APScheduler created with crash guard, wired into FastAPI lifespan
+* Phase 5: Admin manual trigger endpoint POST /api/v1/admin/run-now complete
+* Day 4 Phase 1: Full test suite -- 40 tests passing across all pipeline layers
+* Day 4 Phase 2: Error hardening -- content guard and 4096 char length guard applied
+* Day 4 Phase 3: Health check endpoint GET /health complete
+* Day 4 Phase 4: Deployment script start_bot.bat created
+
+IN-PROCESS:
+
+* MongoDB Atlas IP whitelist blocking server startup -- needs current IP added
+* Windows Task Scheduler task not yet registered -- blocked on server starting first
+* Full end-to-end pipeline test pending -- needs Atlas connection to run
+* GET /health and POST /api/v1/admin/run-now verification pending

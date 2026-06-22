@@ -1,0 +1,245 @@
+Daily Progress Report - June 18, 2026
+
+Project: Telegram News Bot
+
+
+WORK SESSION 1: AI REWRITER AND TELEGRAM POSTER
+
+Completed Tasks
+
+Phase 1 - AI Rewriter (services/ai_rewriter.py)
+
+* Created services/ai_rewriter.py using OpenRouter API instead of
+  Gemini -- uses OpenAI-compatible chat completions endpoint
+
+* Added rewrite_article() async function: calls OpenRouter with
+  configured model, returns 3-5 sentence Telegram-ready summary
+
+* Added _truncate_fallback() for when AI API is unavailable --
+  cuts at last full sentence within 800 chars, adds ellipsis
+  if no sentence boundary found
+
+* Configured via two .env variables: AI_API_KEY (sk-or-v1-...) and
+  AI_MODEL (model identifier like meta-llama/llama-3.3-70b-instruct:free)
+
+* Added debug logging for OpenRouter error responses to diagnose
+  404 and 504 errors during model selection
+
+* Confirmed working: model routed to nex-agi/nex-n2-pro:free,
+  returned 347-char clean Telegram summary
+
+Phase 2 - Telegram Poster (services/telegram_poster.py)
+
+* Created services/telegram_poster.py with three components:
+  _escape_html() for &, <, > escaping, format_message() for
+  template rendering, send_message() for Bot API calls
+
+* Message format: bold title + rewritten summary + clickable
+  article link + source and category footer
+
+* Used HTML parse_mode not MarkdownV2 -- crypto titles contain
+  too many special characters requiring escaping
+
+* Added 429 retry logic: reads retry_after seconds directly from
+  Telegram error description, sleeps exact duration before retry
+
+* Added timeout retry: 5 second sleep between attempts on
+  TimeoutException, raises after 3 failed attempts
+
+* Set up Telegram channel @aneeq121 (public), bot @Telegrambot
+  added as admin, TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID
+  configured in .env
+
+* Confirmed working: message_id 4 posted successfully to channel
+
+
+WORK SESSION 2: DISPATCHER, SCHEDULER, TEST SUITE, AND DEPLOYMENT
+
+Completed Tasks
+
+Phase 3 - Dispatcher (services/dispatcher.py)
+
+* Created services/dispatcher.py with dispatch_articles(db) function
+
+* Added get_source_by_id() to crud.py to resolve source name from
+  source_id stored on articles
+
+* Full dispatch loop: content guard check -> AI rewrite -> format
+  message -> send to Telegram -> mark is_posted=True -> insert log
+
+* Error handling: try/except per article with continue -- one bad
+  article never kills the rest of the queue
+
+* Returns posted and failed counts for logging by scheduler and
+  admin trigger
+
+Phase 4 - APScheduler (scheduler/scheduler.py)
+
+* Created scheduler/scheduler.py with AsyncIOScheduler
+
+* scheduled_run() wrapped in top-level try/except -- any failure
+  logs error but never re-raises, scheduler continues to next tick
+
+* Imports of run_scrapers and dispatch_articles are inside
+  scheduled_run() to avoid circular imports at module load time
+
+* start_scheduler() and stop_scheduler() wired into main.py lifespan
+  after load_keywords() completes
+
+Phase 5 - Admin Trigger (api/routers/admin.py)
+
+* Created POST /api/v1/admin/run-now endpoint using BackgroundTasks
+  -- returns 200 immediately, runs pipeline in background
+
+Phase 3 Health Check (api/routers/health.py)
+
+* Created GET /health endpoint: pings MongoDB live, checks
+  scheduler.running flag, returns status ok or degraded
+
+Day 4 Test Suite (tests/)
+
+* Created 7 test files covering all pipeline layers:
+  conftest.py, test_scraper.py, test_cleaner.py,
+  test_classifier.py, test_dedup.py, test_telegram.py,
+  test_ai_rewriter.py
+
+* All 40 tests passing -- zero failures
+
+* Installed pytest-asyncio in correct Python 3.12 environment,
+  configured asyncio_mode = auto in pytest.ini
+
+Error Hardening
+
+* Fix 2 in dispatcher: content guard skips articles under 50 chars
+  before reaching AI call
+
+* Fix 3 in dispatcher: message length guard trims rewritten content
+  if formatted message exceeds Telegram 4096 char limit
+
+Deployment
+
+* Created start_bot.bat using pythonw to run without terminal window
+
+* Windows Task Scheduler task pending -- blocked on Atlas IP
+  whitelist expiry preventing server startup
+
+
+CHALLENGES RESOLVED
+
+OpenRouter model returning 504 gateway timeout
+
+* Root cause:
+  nvidia/nemotron-3-ultra-550b-a55b:free model was cold and
+  unresponsive, timing out before returning a response
+
+* Fix:
+  Switched AI_MODEL to meta-llama/llama-3.3-70b-instruct:free
+  then to current working model -- OpenRouter auto-routed to
+  nex-agi/nex-n2-pro:free which responded successfully
+
+pytest-asyncio not recognized on Python 3.12
+
+* Root cause:
+  pip install ran against Python 3.11 but pytest was running
+  under Python 3.12 -- asyncio_mode = auto had no effect
+
+* Fix:
+  Ran python -m pip install pytest-asyncio inside Python 3.12
+  environment, all async tests passed immediately
+
+test_classify_title_weighted_higher failing
+
+* Root cause:
+  Test content contained the word ethereum which also matched
+  the eth keyword via substring, giving Ethereum 2 points vs
+  Bitcoin 1 point unexpectedly
+
+* Fix:
+  Rewrote test content to avoid any crypto keyword in body,
+  confirmed title-only match correctly classified as Bitcoin
+
+MongoDB Atlas SSL handshake failure blocking server startup
+
+* Root cause:
+  IP address changed between sessions, current IP not in Atlas
+  Network Access allowlist
+
+* Fix:
+  Pending -- user needs to add current IP in Atlas Network
+  Access before server can start
+
+
+FILES CHANGED
+
+services/ai_rewriter.py
+
+* Created -- OpenRouter API caller with truncation fallback
+
+services/telegram_poster.py
+
+* Created -- HTML message formatter and Bot API sender with
+  429 retry and timeout retry logic
+
+services/dispatcher.py
+
+* Created -- full dispatch loop with content guard, length guard,
+  source name resolution, and log insertion
+
+scheduler/scheduler.py
+
+* Created -- AsyncIOScheduler with try/except crash guard
+
+api/routers/admin.py
+
+* Created -- POST /api/v1/admin/run-now with BackgroundTasks
+
+api/routers/health.py
+
+* Created -- GET /health with live MongoDB ping and scheduler check
+
+main.py
+
+* Updated -- added scheduler start/stop to lifespan, mounted
+  admin and health routers
+
+database/crud.py
+
+* Added get_source_by_id() function for dispatcher source lookup
+
+utils/config.py
+
+* Added AI_MODEL env var alongside existing AI_API_KEY
+
+tests/conftest.py, test_scraper.py, test_cleaner.py,
+test_classifier.py, test_dedup.py, test_telegram.py,
+test_ai_rewriter.py
+
+* Created -- 40 tests, all passing
+
+pytest.ini
+
+* Created -- asyncio_mode = auto
+
+start_bot.bat
+
+* Created -- pythonw startup script for Windows deployment
+
+
+END STATE
+
+✓ AI rewriter working -- OpenRouter API returning clean summaries
+✓ Telegram poster working -- message_id 4 confirmed on @aneeq121
+✓ Dispatcher built with content guard and message length guard
+✓ APScheduler wired into FastAPI lifespan with crash guard
+✓ Admin manual trigger endpoint complete
+✓ Health check endpoint complete
+✓ 40 tests passing across all pipeline layers
+✓ Deployment script created
+
+Pending:
+
+* Add current IP to MongoDB Atlas Network Access to unblock server
+* Verify GET /health returns ok with server running
+* Run POST /api/v1/admin/run-now and confirm Telegram post appears
+* Register Windows Task Scheduler task for auto-start on reboot
+* Run full end-to-end pipeline test with real articles from MongoDB

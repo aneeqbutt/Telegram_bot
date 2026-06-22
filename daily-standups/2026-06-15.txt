@@ -1,0 +1,12 @@
+Start of Day Update - Telegram News Bot | June 15, 2026
+
+TODAY:
+- Set up modular project structure (scrapers, services, database, api, utils, scheduler)
+- Configure Supabase and create all 6 tables (articles, sources, categories, keywords, channels, logs)
+- Implement scraper for CoinTelegraph (cointelegraph.com)
+- Implement scraper for Blockworks (blockworks.co/news)
+- Build data cleaning and normalization logic (strip HTML, standardize timestamps)
+- Implement deduplication using URL uniqueness check
+
+BLOCKERS:
+- No blockers

@@ -1,0 +1,10 @@
+Start of Day Update - Telegram News Bot | June 18 2026
+
+TODAY:
+- Implement Phase 3: Dispatcher (services/dispatcher.py) — connect rewriter + poster, read unposted articles from MongoDB, mark posted, write to logs
+- Implement Phase 4: APScheduler (scheduler/scheduler.py) — AsyncIOScheduler, run full pipeline on interval
+- Implement Phase 5: Admin trigger endpoint (api/routers/admin.py) — POST /api/v1/admin/run-now
+- Update main.py to wire in scheduler and admin router
+
+Remainig:
+- Test full end-to-end pipeline: scrape -> classify -> rewrite -> post -> mark posted
